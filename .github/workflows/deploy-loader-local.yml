@@ -42,7 +42,7 @@ jobs:
       - name: Checkout argocd local repository
         uses: actions/checkout@v2
         with:
-          repository: 'argocd-local'
+          repository: 'nm-bskim/argocd-local'
           token: ${{ secrets.ACTION_TOKEN }}
           path: 'argocd-local'
           fetch-depth: 0
