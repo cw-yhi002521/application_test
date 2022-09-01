@@ -39,10 +39,10 @@ jobs:
         with:
           path: 'self'
 
-      - name: Checkout argocd deploy repository
+      - name: Checkout argocd local repository
         uses: actions/checkout@v2
         with:
-          repository: 'nm-bskim/argocd-local'
+          repository: 'argocd-local'
           token: ${{ secrets.ACTION_TOKEN }}
           path: 'argocd-local'
           fetch-depth: 0
