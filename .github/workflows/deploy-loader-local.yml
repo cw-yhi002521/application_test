@@ -39,13 +39,13 @@ jobs:
         with:
           path: 'self'
 
-      - name: Checkout argocd local repository
-        uses: actions/checkout@v2
-        with:
-          repository: 'nm-bskim/argocd-local'
-          token: ${{ secrets.ACTION_TOKEN }}
-          path: 'argocd-local'
-          fetch-depth: 0
+#       - name: Checkout argocd local repository
+#         uses: actions/checkout@v2
+#         with:
+#           repository: 'nm-bskim/argocd-local'
+#           token: ${{ secrets.ACTION_TOKEN }}
+#           path: 'argocd-local'
+#           fetch-depth: 0
 
       - name: Set outputs
         id: vars
