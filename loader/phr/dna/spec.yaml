@@ -1,0 +1,1256 @@
+openapi: 3.0.3
+
+info:
+  title: PHR-DNA BO API
+  description: "PHR-DNA BO API"
+  version: 0.0.1
+
+servers:
+  - url: https://boapi.hb.id-im.{env}/phr-dna/apps/v1
+    description: API 서버
+    variables:
+      env:
+        description: |
+          - dev
+          - sg
+          - com
+        default: sg
+  - url: https://boapi.hb.id-im.{env}/phr-dna/macrogen/v1
+    description: API 서버
+    variables:
+      env:
+        description: |
+          - dev
+          - sg
+          - com
+        default: sg
+  - url: https://accounts.id-im.{env}
+    description: 인증 서버
+    variables:
+      env:
+        description: |
+          - dev
+          - sg
+          - com
+        default: sg
+
+tags:
+  - name: TRAIT
+    description: DNA 특성
+  - name: DNA KIT
+    description: DNA KIT 상태
+  - name: ANALYSIS
+    description: DNA ANALYSIS
+  - name: MACROGEN
+    description: Macrogen API
+
+paths:
+  /trait/users/{uid}:
+    post:
+      tags:
+        - TRAIT
+      summary: 회원 HB DNA 특성 조회
+      operationId: getUserDNATraitList
+      parameters:
+        - $ref: "#/components/parameters/uIdPathParameter"
+      requestBody:
+        description: 토큰 요청 바디
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+                example: 1
+        required: true
+      responses:
+        200:
+          $ref: "#/components/responses/200UserTrait"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        422:
+          $ref: "#/components/responses/422UnprocessableEntity"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /trait:
+    get:
+      tags:
+        - TRAIT
+      summary: HB TRAIT META 조회
+      description: 마크로젠 특성항목들에 대해매칭된 힐러비 특성메타정보들을 조회합니다.
+      operationId: getTraitMeta
+      responses:
+        200:
+          $ref: "#/components/responses/200HBTraitMeta"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        422:
+          $ref: "#/components/responses/422UnprocessableEntity"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /dna-kits/users/{uid}:
+    post:
+      tags:
+        - DNA KIT
+      summary: DNA Kit 정보 등록
+      description: 고객에게 배송된 새로운 DNA Kit의 정보를 등록합니다.
+      operationId: addDnaKit
+      parameters:
+        - $ref: "#/components/parameters/uIdPathParameter"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnaKitPostRequestBody"
+      responses:
+        200:
+          $ref: "#/components/responses/200PostDnaKit"
+        201:
+          $ref: "#/components/responses/201Created"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        409:
+          $ref: "#/components/responses/409Conflict"
+        422:
+          $ref: "#/components/responses/422UnprocessableEntity"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+    patch:
+      tags:
+        - DNA KIT
+      summary: DNA Kit 정보 수정
+      description: |
+        고객에게 배송완료된 DNA Kit정보를 수정합니다. (마크로젠으로 반송정보전달)
+        - RequestBody가 없는 경우, 배송완료상태(DNA 키트회원이 수취)로 업데이트
+        - RequestBody가 있는 경우, DNA Kit 반송정보 업데이트(B.O에서 반송정보 전달)
+      operationId: updateDnaKit
+      parameters:
+        - $ref: "#/components/parameters/uIdPathParameter"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnaKitPatchRequestBody"
+      responses:
+        200:
+          $ref: "#/components/responses/200Base"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        422:
+          $ref: "#/components/responses/422UnprocessableEntity"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /dna-analyses:
+    get:
+      tags:
+        - ANALYSIS
+      summary: DNA 키트 재배송 대상 조회
+      description: |
+        키트 재배송 대상 회원 uid리스트를 반환합니다.
+        - 해당 진단 상태인 회원 (=재배송 대상)
+          1. UNPROCESSABLE_SAMPLE(반송된 샘플이 불량 = DNA Kit 재배송 필요)
+          2. ANALYSIS_FAILED(분석실패 = DNA Kit 재배송 필요)
+      operationId: getReDeliveryTarget
+      responses:
+        200:
+          $ref: "#/components/responses/200ReDelivery"
+        204:
+          $ref: "#/components/responses/204NoContent"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+    post:
+      tags:
+        - ANALYSIS
+      summary: DNA 분석 취소
+      description: |
+        회원의 진행중인 DNA 분석 프로세스를 취소처리합니다. 
+        일반적인 취소 요청 외에도 아래와 같은 상황에서 해당 API를 호출해야 합니다:
+        - 서비스 유효기간이 초과한 경우 (DNA Kit 수령 후 반송 미요청)
+        - 분석 프로세스가 완료되기 전에 회원탈퇴를 진행하는 경우
+      operationId: cancelAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnaCancelRequestBody"
+      responses:
+        200:
+          $ref: "#/components/responses/200cancelAnalysis"
+        204:
+          $ref: "#/components/responses/204NoContent"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /users/{client-key}/analyses/{order-code}/terms:
+    post:
+      tags:
+        - MACROGEN
+      summary: 동의 정보 송신
+      description: 동의서 페이지에서 작성한 고객의 데이터를 전달합니다. (macrogen/v1 endpoint 호출)
+      operationId: saveUserTerm
+      parameters:
+        - $ref: "#/components/parameters/clientKeyPathParameter"
+        - $ref: "#/components/parameters/orderCodePathParameter"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TermsRequestObject"
+      responses:
+        200:
+          $ref: "#/components/responses/200Terms"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /users/{client-key}/analyses/{order-code}/dna-kits/{kit-id}:
+    patch:
+      tags:
+        - MACROGEN
+      summary: 샘플 접수 | 샘플 불량 송신 | 분석 개시 송신
+      description: DNA 샘플이 마크로젠에 도착한 여부 혹은 도착한 샘플에 대해 분석이 시작되는지/불가한지 여부를 전달합니다. (macrogen/v1 endpoint 호출)
+      operationId: updateDnaSample
+      parameters:
+        - $ref: "#/components/parameters/clientKeyPathParameter"
+        - $ref: "#/components/parameters/orderCodePathParameter"
+        - $ref: "#/components/parameters/kitIdPathParameter"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnaSampleRequestObject"
+      responses:
+        200:
+          $ref: "#/components/responses/200DnaSample"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        422:
+          $ref: "#/components/responses/422UnprocessableEntity"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+  /users/{client-key}/analyses/{order-code}/dna-kits/{kit-id}/update-analysis-result:
+    post:
+      tags:
+        - MACROGEN
+      summary: 검사 결과 | 분석 실패 등록
+      description: DNA 분석 프로세스에 대해 성공 여부와 함께 분석 정보를 전달합니다. (macrogen/v1 endpoint 호출)
+      operationId: updateAnalysisResult
+      parameters:
+        - $ref: "#/components/parameters/clientKeyPathParameter"
+        - $ref: "#/components/parameters/orderCodePathParameter"
+        - $ref: "#/components/parameters/kitIdPathParameter"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnaAnalysisResult"
+      responses:
+        200:
+          $ref: "#/components/responses/200Base"
+        204:
+          $ref: "#/components/responses/204NoContent"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+  /messages/completed:
+    post:
+      tags:
+        - MACROGEN
+      summary: 마크로젠 알림송신완료 수신 API
+      description: 분석성공한 회원에게 마크로젠알림전송이 완료됨을 전달 받습니다.
+      operationId: sendAnalysisSuccess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KitIdList"
+      responses:
+        200:
+          $ref: "#/components/responses/200Base"
+        204:
+          $ref: "#/components/responses/204NoContent"
+        400:
+          $ref: "#/components/responses/400BadRequest"
+        401:
+          $ref: "#/components/responses/401Unauthorized"
+        404:
+          $ref: "#/components/responses/404NotFound"
+        500:
+          $ref: "#/components/responses/500InternalServerError"
+
+components:
+  schemas:
+    KitIdList:
+      type: object
+      properties:
+        kitIdList:
+          type: array
+          items:
+            type: string
+            example: "NHB22000001"
+          maxItems: 100
+      required:
+        - kitIdList
+
+    DnaAnalysisResult:
+      description: DNA 분석 정보
+      type: object
+      properties:
+        kit_round:
+          description: DNA 분석 Kit 회차
+          type: integer
+          example: 1
+        request_status:
+          $ref: "#/components/schemas/RequestStatusCode"
+        complete_datetime:
+          description: 실험 완료일자 (실험 실패시 null)
+          type: string
+          format: date-time
+        fail_count:
+          description: 분석 실패 횟수
+          type: integer
+        fail_memo:
+          description: |
+            분석 실패 사유
+            - DNA 양이 부족합니다. 재채취시 양볼을 충분히 문질러 세포가 많이 모이도록 해주세요. 침을 너무 적게 또는 많이 뱉지 않도록 주의 해주세요
+            - DNA 상태가 좋지 않습니다. 재채취시 30분 전 음식물 섭취, 가글, 양치, 흡연 등을 삼가하고 정량(붉은선까지)의 타액을 뱉고 보존액과 잘 섞이도록 해주세요
+            - null // (샘플 자체적인 사유로 검사결과 판별 불가시)
+          type: string
+        method:
+          description: DNA 분석 방식 (현재 `Microarray chip`로 고정)
+          type: string
+          example: Microarray chip
+        sample_type:
+          description: DNA 분석 샘플 종류 (현재 `타액`으로 고정)
+          type: string
+          example: 타액
+        sample_suitability:
+          description: DNA 분석 샘플의 상태 (현재 분석이 성공했을 시만 `적합`으로 고정되서 전달)
+          type: string
+          example: 적합
+        analysis_version:
+          description: DNA 분석 버전
+          type: string
+          example: 3.0.0
+        traits:
+          $ref: "#/components/schemas/TraitData"
+        categories:
+          $ref: "#/components/schemas/CategoryData"
+        report_file_url:
+          description: DNA 분석 PDF link
+          type: string
+          example: "https://localhost/NHB999999999.pdf"
+      required:
+        - kitRound
+        - request_status
+
+    TraitData:
+      description: DNA 분석 데이터
+      type: array
+      items:
+        $ref: "#/components/schemas/DnaTrait"
+
+    DnaTrait:
+      description: DNA 특성
+      type: object
+      properties:
+        category_name:
+          description: (마크로젠에서 분류한) 소속 카테고리
+          type: string
+          example: Health
+        kor_category_name:
+          description: (마크로젠에서 분류한) 소속 카테고리
+          type: string
+          example: 건강관리
+        kor_trait_name:
+          description: 특성 이름 (이름에 띄어쓰기 및 특수기호 "/", "&" 등 존재)
+          type: string
+          example: "콜레스테롤 (HDLc)"
+        trait_name:
+          description: 특성 이름 (이름에 띄어쓰기 및 특수기호 "/", "&" 등 존재)
+          type: string
+          example: "HDL Cholesterol"
+        score:
+          description: 점수
+          type: integer
+          example: 73
+        grade:
+          description: |
+            등급 (DNA 특성에 따라 다른 형태의 값이 존재)
+            
+            예:
+              - 낮음/높음
+              - 주의/보통/안심
+              - 레드 와인형
+              - 쇼트 슬리퍼
+              - 저녁형 인간
+          type: string
+          example: 보통
+        less_is_better:
+          $ref: "#/components/schemas/LessIsBetterEnum"
+        genotypes:
+          description: 유전변이 정보
+          type: array
+          items:
+            type: object
+            properties:
+              gene:
+                description: 유전자명
+                type: string
+                example: CETP
+              genotype:
+                type: object
+                properties:
+                  SNP1:
+                    description: 유전형1
+                    type: string
+                    example: CA
+                  SNP2:
+                    description: 유전형2
+                    type: string
+                    example: CC
+                  SNP3:
+                    description: 유전형3
+                    type: string
+                    example: CC
+                  SNP4:
+                    description: 유전형4
+                    type: string
+                    example: CC
+
+    LessIsBetterEnum:
+      type: string
+      enum:
+        - "-"
+        - "no"
+        - "yes"
+      example: "no"
+
+    # AvailabilityStatus:
+    #   description: |
+    #     이용 가능 상태
+    #     - UNAVAILABLE: 이용 불가능
+    #     - AVAILABLE: 이용 가능
+    #     - UNKNOWN: 알 수 없음
+    #   type: string
+    #   enum:
+    #     - UNAVAILABLE
+    #     - AVAILABLE
+    #     - UNKNOWN
+
+    KitStatusCode:
+      description: |
+        키트반송 상태
+        - 1: 개봉 (실험개시 가능)
+        - 2: 고객이 키트 분실
+        - 5: 개봉 (실험개시 불가능)
+        - 6: 택배사 키트 분실
+      type: string
+      enum:
+        - "1"
+        - "2"
+        - "5"
+        - "6"
+
+    CategoryData:
+      description: DNA 분석 카테고리 정보
+      type: array
+      items:
+        $ref: "#/components/schemas/CategoryDatum"
+
+    CategoryDatum:
+      type: object
+      properties:
+        idx:
+          type: integer
+        kor_category_name:
+          type: string
+          example: 영양소
+        trait_name:
+          type: string
+          example: Potassium levels
+        grade:
+          type: string
+          example: 주의
+
+    DnaSampleRequestObject:
+      description: |
+        DNA Kit info sample update
+      type: object
+      properties:
+        kitRound:
+          type: integer
+          example: 1
+        requestStatus:
+          type: string
+          example: "02"
+        kitStatus:
+          type: string
+          example: "1"
+        receivedDatetime:
+          type: string
+          example: "2021-06-25T10:00:00+09:00"
+        analysisDueDate:
+          type: string
+          example: "2021-06-25"
+        note:
+          type: string
+          example: "요청하신 보도자료용 분석 데이터입니다."
+      required:
+        - kitRound
+        - requestStatus
+
+
+    DnaSampleResponse:
+      description: |
+        Dna Sample Info Register Or Update
+      type: object
+      properties:
+        kitId:
+          $ref: "#/components/schemas/KitId"
+        clientKey:
+          $ref: "#/components/schemas/ClientKey"
+        orderCode:
+          $ref: "#/components/schemas/OrderCode"
+
+    RequestStatusCode:
+      description: |
+        요청 상태 (마크로젠 공통 코드)
+        - 01: 주문신청
+        - 02: 키트발송
+        - 03: 실험개시 (반송수령 정상)
+        - 04: 실험완료
+        - 05: 키트 반송완료
+        - 06: 키트 재발송
+        - 11: 고객취소 (키트발송전)
+        - 12: 고객취소 (키트발송이후)
+        - 16: 반송수령 (취소)
+        - 17: 실험실패
+      type: string
+      enum:
+        - "01"
+        - "02"
+        - "03"
+        - "04"
+        - "05"
+        - "06"
+        - "11"
+        - "12"
+        - "16"
+        - "17"
+
+    AcceptanceEnum:
+      description: 동의 여부
+      type: string
+      enum:
+        - Y
+        - N
+
+    AcceptanceData:
+      description: 약관 동의 여부
+      type: array
+      items:
+        $ref: "#/components/schemas/AcceptanceEnum"
+
+    DnaKitPatchRequestBody:
+      description: |
+        RequestBody가 필수는 아니지만 RequestBody가 있는 경우, 필드는 필수이다.
+      type: object
+      properties:
+        sampleReturnLogistics:
+          $ref: "#/components/schemas/LogisticsCode"
+        sampleReturnTrackingNumber:
+          description: DNA 샘플 반송 송장번호
+          type: string
+          example: 111122223333
+      required:
+        - sampleReturnLogistics
+        - sampleReturnTrackingNumber
+
+    DnaCancelRequestBody:
+      type: array
+      items:
+        type: string
+        description: 회원 uid
+        example: "00lrTbajKXwVm5oBz45UOFOHb"
+      maximum: 100
+
+    TermsResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TermsResponse"
+
+    TermsResponse:  # Response Body 용 데이터
+      type: object
+      properties:
+        client_key:
+          $ref: "#/components/schemas/ClientKey"
+        order_code:
+          $ref: "#/components/schemas/OrderCode"
+        acceptance_datetime:
+          type: string
+          format: date-time
+
+    TermsRequestObject:
+      description: 고객 동의 정보
+      type: object
+      properties:
+        client_address:
+          description: 수정된 고객 주소
+          type: string
+          example: 서울 구로구 디지털로26길 38
+        client_address_detail:
+          description: 수정된 고객 주소 상세
+          type: string
+          example: 넷마블신사옥 13층
+        term_version:
+          description: 약관 버전
+          type: string
+          example: "001"
+        acceptance_data:
+          $ref: "#/components/schemas/AcceptanceData"
+        acceptance_datetime:
+          type: string
+          format: date-time
+      required:
+        - saliva_collection_date
+        - acceptance
+        - acceptance_datetime
+
+    LogisticsCode:
+      description: |
+        택배 회사
+        - KR_EPOST: 우체국
+        - KR_CJLOGISTICS: CJ 대한통운
+      type: string
+      enum:
+        - KR_EPOST
+        - KR_CJLOGISTICS
+      example: KR_CJLOGISTICS
+
+    ClientKey:
+      description: 고객 ID (힐러비 uid)
+      type: string
+      example: "00lrTbajKXwVm5oBz45UOFOHb"
+      maxLength: 30
+
+    OrderCode:
+      description: 주문 코드 (DNA 분석 ID)
+      type: string
+      example: "0000017e5118f9341251323bd1b80003"
+
+    KitId:
+      description: DNA 분석 Kit 시리얼 번호 (Kit 바코드 번호)
+      type: string
+      example: NH220000001
+
+    DnaAnalysisId:
+      description: DNA 분석 ID
+      type: string
+      example: "0000017e5118f9341251323bd1b80003"
+
+    DnaKitId:
+      description: DNA 분석 Kit ID
+      type: string
+      example: "NH220000001"
+
+    DnaKitSerialNumber:
+      description: DNA 분석 Kit 시리얼 번호 (Kit 바코드 번호)
+      type: string
+      example: NH220000001
+
+    MetaTraitResponse:
+      type: object
+      properties:
+        traitId:
+          type: integer
+          description: HB DNA META TraitId
+          example: 1
+        traitName:
+          type: string
+          description: HB DNA META Trait명
+          example: "아르기닌 농도"
+        macrogenTraitName:
+          type: string
+          description: Macrogen DNA Trait명
+          example: "아르기닌 농도"
+        macrogenTraitCategory:
+          type: string
+          description: Macrogen DNA Trait이 속한 Category(정부지정과 동일)
+          example: "Nutrition"
+        createdAt:
+          type: string
+          description: 생성일시
+          example: "2022-06-14T15:10:10.001Z"
+        updatedAt:
+          type: string
+          description: 수정일시
+          example: "2022-06-14T15:10:10.001Z"
+        createdUser:
+          type: string
+          description: 생성자 이름
+          example: "홍길동"
+        updatedUser:
+          type: string
+          description: 수정자 이름
+          example: "홍길동"
+
+    hBTraitMetaResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/MetaTraitResponse"
+
+    geneMetaResponse:
+      type: object
+      properties:
+        geneId:
+          type: string
+          description: HB DNA META GeneId(유전자ID)
+          example: "1"
+        geneName:
+          type: string
+          description: HB DNA META GeneName(유전자명)
+          example: "F12"
+        genoType:
+          type: object
+          properties:
+            genoTypeId:
+              type: string
+              description: 유전자형ID
+              example: "1"
+            snpMarkerType:
+              type: string
+              description: 유전자형 타입
+              example: "T"
+
+    GeneList:
+      type: object
+      properties:
+        geneId:
+          type: integer
+          description: 유전자ID
+          example: 1
+        geneName:
+          type: string
+          description: 유전자명
+          example: "SLC23A1"
+        korGeneName:
+          type: string
+          description: 유전자한글명
+          example: "비타민 C 운반 유전자"
+        genoType:
+          type: array
+          items:
+            $ref: "#/components/schemas/SnpMarker"
+      required:
+        - geneId
+        - geneName
+        - korGeneName
+        - genoType
+
+    SnpMarker:
+      type: object
+      properties:
+        snpMarkerTypeId:
+          type: integer
+          description: 영향인자ID
+          example: 1
+        effectFactor:
+          type: string
+          description: 영향인자
+          example: "T"
+        snpMarkerType:
+          type: string
+          description: 회원 유전자형 snpMarker타입
+          example: "TT"
+        snpMarkerGrade:
+          type: string
+          description: 회원 유전자형 snpMarker타입 등급
+          example: "안심"
+
+    # response 수정 필요
+    UserTraitResponse:
+      type: object
+      properties:
+        traitId:
+          type: integer
+          description: 특성ID
+          example: 1
+        traitName:
+          type: string
+          description: HB DNA META Trait명
+          example: "아르기닌 농도"
+        userTraitScore:
+          type: string
+          description: User의 Trati에 대한 점수
+          example: 49
+        userTraitGrade:
+          type: string
+          description: User의 Trait에 대한 등급
+          example: 보통
+        geneList:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneList"
+      required:
+        - traitId
+        - traitName
+        - userTraitScore
+        - userTraitGrade
+        - geneList
+
+    UserTraitReponseList:
+      type: object
+      properties:
+        traits:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserTraitResponse"
+      required:
+        - traits
+
+    ##### component #####
+    UId:
+      description: 힐러비 uid
+      type: string
+      example: "00lrTbajKXwVm5oBz45UOFOHb"
+      maxLength: 30
+
+    #     ##### Request/Response Body #####
+    #     # NOTE: allOf를 `responses` component -> application/json -> schema 안에서 설정할 경우 제대로 stub이 생성이 안되는 이슈가 있음
+    BaseResponseBody:
+      type: object
+      properties:
+        code:
+          type: string
+        detail:
+          type: string
+      required:
+        - code
+
+    DnaKitPostResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DnaKitPostResponse"
+
+    DnaKitPostResponse:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/DnaKitId"
+        dnaAnalysisId:
+          $ref: "#/components/schemas/DnaAnalysisId"
+        salivaCollectionDate:
+          description: 타액 채취 날짜
+          type: string
+          format: date
+        sampleReturnedAt:
+          description: DNA 샘플 검사업체 도착 시각
+          type: string
+          format: date-time
+        analysisStartedAt:
+          description: DNA 분석 프로세스 시작 일자
+          type: string
+          format: date-time
+        analysisDueDate:
+          description: DNA 분석 프로세스 예상 완료 일자
+          type: string
+          format: date
+        analysisCompletedAt:
+          description: DNA 분석 프로세스 완료 시각
+          type: string
+          format: date-time
+      required:
+        - id
+        - dnaAnalysisId
+
+    DNAKitResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                kitStatus:
+                  type: string
+                  description: DNA Kit 분석상태
+                  example: "키트상태"
+
+    DnaKitSaveResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DnaKitSaveResponseObject"
+
+    DnaKitSaveResponseObject: # Response Body 용 데이터
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/DnaKitId"
+        dnaAnalysisId:
+          $ref: "#/components/schemas/DnaAnalysisId"
+        dnaKitSerialNumber:
+          $ref: "#/components/schemas/DnaKitSerialNumber"
+        saliva_collection_date:
+          description: 타액 채취 날짜
+          type: string
+          format: date
+        sampleReturnedAt:
+          description: DNA 샘플 검사업체 도착 시각
+          type: string
+          format: date-time
+        analysisStartedAt:
+          description: DNA 분석 프로세스 시작 일자
+          type: string
+          format: date-time
+        analysisDueDate:
+          description: DNA 분석 프로세스 예상 완료 일자
+          type: string
+          format: date
+        analysisCompletedAt:
+          description: DNA 분석 프로세스 완료 시각
+          type: string
+          format: date-time
+
+    DnaKitPostRequestBody:
+      description: |
+        DNA Kit 배송 정보
+        - `dnaKit...`으로 시작하는 필드는 DNA Kit 배송 정보
+        - `sampleReturn...`으로 시작하는 필드는 DNA 샘플 반송 정보
+      type: object
+      properties:
+        dnaKitSerialNumber:
+          $ref: "#/components/schemas/DnaKitSerialNumber"
+        dnaKitLogistics:
+          $ref: "#/components/schemas/LogisticsCode"
+        dnaKitTrackingNumber:
+          description: DNA Kit 배송 송장번호
+          type: string
+          example: 111122223333
+      required:
+        - dnaKitSerialNumber
+        - dnaKitLogistics
+        - dnaKitTrackingNumber
+
+    UserTraitResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserTraitResponse"
+
+    ReDeliveryResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ReDeliveryResponse"
+
+    ReDeliveryResponse:
+      type: array
+      items:
+        type: string
+        description: uid
+        example: "00lrTbajKXwVm5oBz45UOFOHb"
+
+    AnalysisCancelResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AnalysisDeletedCountResponse"
+
+    AnalysisDeletedCountResponse:
+      type: object
+      properties:
+        deletedCount:
+          type: integer
+          example: 1
+
+    DnaSampleResponseBody:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponseBody"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DnaSampleResponse"
+
+  parameters:
+
+    dnaKitIdPathParameter:
+      name: dna-kit-id
+      in: path
+      description: DNA Kit ID
+      required: true
+      schema:
+        $ref: "#/components/schemas/DnaKitId"
+
+    kitIdPathParameter:
+      name: kit-id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/KitId"
+
+    serialNumberPathParameter:
+      name: serialNumber
+      in: path
+      description: 키트S/N
+      required: true
+      schema:
+        example: "serialNumber"
+        type: string
+
+    uIdPathParameter:
+      name: uid
+      in: path
+      description: 힐러비 uid
+      required: true
+      schema:
+        $ref: "#/components/schemas/UId"
+
+    clientKeyPathParameter:
+      name: client-key
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ClientKey"
+
+    orderCodePathParameter:
+      name: order-code
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/OrderCode"
+
+    hbAppIdHeaderParameter:
+      name: x-hb-app-id
+      in: header
+      description: 앱 ID
+      required: true
+      schema:
+        example: app.id-im.com
+        type: string
+
+    traitIdInPathVariable:
+      name: trait_id
+      in: path
+      required: true
+      description: "유전자항목고유ID"
+      schema:
+        type: string
+
+    geneIdInPathVariable:
+      name: gene_id
+      in: path
+      required: true
+      description: "유전자고유ID"
+      schema:
+        type: string
+
+  responses:
+    200DnaSample:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DnaSampleResponseBody"
+
+    200Terms:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TermsResponseBody"
+
+    200Base:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+    200PlaceHolder:
+      description: "***해당 code는 사용되지 않음*** (OpenAPI에서 return 가능한 모든 body를 명시해야 하기 때문에 작성됨)"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+    200cancelAnalysis:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AnalysisCancelResponseBody"
+
+    200ReDelivery:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ReDeliveryResponseBody"
+
+    200DnaSaveKit:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DnaKitSaveResponseBody"
+
+    200PostDnaKit:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DnaKitPostResponseBody"
+
+    200DNAKit:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DNAKitResponseBody"
+
+    200UserTrait:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UserTraitResponseBody"
+
+    200HBTraitMeta:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/hBTraitMetaResponseBody"
+
+    200GeneMetaResponse:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/geneMetaResponse"
+
+    201CreatedBase:
+      description: Created
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+    201Created:
+      description: 생성 완료
+
+    204NoContent:
+      description: 처리 완료 (데이터 없음)
+
+    400BadRequest:
+      description: 요청값이 명세와 다름
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+    401Unauthorized:
+      description: API key가 존재하지 않음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+      headers:
+        WWW_Authenticate:
+          schema:
+            type: string
+
+    404NotFound:
+      description: 해당하는 값 없음
+
+    409Conflict:
+      description: 이미 데이터가 존재함
+
+    422UnprocessableEntity:
+      description: 요청값이 유효하지 않음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+    500InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BaseResponseBody"
+
+  securitySchemes:
+    oAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /protocol/openid-connect/token
+          #          refreshUrl: https://localhost/opauth2/tokens
+          scopes: {}
+
+security:
+  - oAuth2: []
