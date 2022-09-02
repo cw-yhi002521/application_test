@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 """locust-test-module"""
-from locust import HttpUser, TaskSet, task
+from locust import TaskSet, task
 from locust_plugins.users import RestUser
 
 
@@ -48,7 +48,7 @@ class MyTaskSet(TaskSet):
                                 , name="/trait/users/{uid}", **kwargs)
 
 
-class MyLocust(HttpUser):
+class MyLocust(RestUser):
     """locustClass"""
     tasks = [MyTaskSet]
     min_wait = 1000
