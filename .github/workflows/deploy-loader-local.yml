@@ -24,20 +24,24 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-      - name: start minikube
-        id: minikube
-        uses: medyagh/setup-minikube@master
+        - uses: tale/kubectl-action@v1
+          with:
+            base64-kube-config: ${{ secrets.KUBE_CONFIG }}
+        - run: kubectl get pods
+#       - name: start minikube
+#         id: minikube
+#         uses: medyagh/setup-minikube@master
 
-      - name: kubectl
-        run: kubectl get pods -A
+#       - name: kubectl
+#         run: kubectl get pods -A
 
-      - name: Time Set!
-        run: export TZ="UTC"
+#       - name: Time Set!
+#         run: export TZ="UTC"
 
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          path: 'self'
+#       - name: Checkout
+#         uses: actions/checkout@v2
+#         with:
+#           path: 'self'
 
 #       - name: Checkout argocd local repository
 #         uses: actions/checkout@v2
@@ -47,59 +51,59 @@ jobs:
 #           path: 'argocd-local'
 #           fetch-depth: 0
 
-      - name: Set outputs
-        id: vars
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-        working-directory: 'self'
+#       - name: Set outputs
+#         id: vars
+#         run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+#         working-directory: 'self'
 
-      - name: Get current time
-        uses: srfrnk/current-time@master
-        id: current-time
-        with:
-          format: YYYYMMDDHHmmss
+#       - name: Get current time
+#         uses: srfrnk/current-time@master
+#         id: current-time
+#         with:
+#           format: YYYYMMDDHHmmss
 
-      - name: Install Helm
-        uses: azure/setup-helm@v1
-        with:
-          version: v3.4.0
+#       - name: Install Helm
+#         uses: azure/setup-helm@v1
+#         with:
+#           version: v3.4.0
 
-      - name: Build, tag, and push image to docker-registry
-        id: build-image
-        env:
-          ECR_REGISTRY: localhost:5000
-          IMAGE_TAG: ${{ env.DEPLOY_ENV }}-${{ steps.vars.outputs.sha_short }}-${{ steps.current-time.outputs.formattedTime }}
-        run: |
-          kubectl port-forward --namespace kube-system service/registry 5000:80
-          # Build a docker container and push it to ECR
-          docker build \
-            --build-arg DEPLOY_ENV \
-            -t $ECR_REGISTRY/loader/dna:$IMAGE_TAG \
-            -f Dockerfile .
-          echo "Pushing image to Docker registry..."
-          docker push $ECR_REGISTRY/loader/dna:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        working-directory: 'self/${{ env.DIRECTORY }}/phr/dna'
+#       - name: Build, tag, and push image to docker-registry
+#         id: build-image
+#         env:
+#           ECR_REGISTRY: localhost:5000
+#           IMAGE_TAG: ${{ env.DEPLOY_ENV }}-${{ steps.vars.outputs.sha_short }}-${{ steps.current-time.outputs.formattedTime }}
+#         run: |
+#           kubectl port-forward --namespace kube-system service/registry 5000:80
+#           # Build a docker container and push it to ECR
+#           docker build \
+#             --build-arg DEPLOY_ENV \
+#             -t $ECR_REGISTRY/loader/dna:$IMAGE_TAG \
+#             -f Dockerfile .
+#           echo "Pushing image to Docker registry..."
+#           docker push $ECR_REGISTRY/loader/dna:$IMAGE_TAG
+#           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+#         working-directory: 'self/${{ env.DIRECTORY }}/phr/dna'
 
-      - name: Change argocd-local branch
-        run: git checkout main
-        working-directory: 'argocd-local'
+#       - name: Change argocd-local branch
+#         run: git checkout main
+#         working-directory: 'argocd-local'
 
-      - name: Templating Helm chart
-        env:
-          VERSION: ${{ steps.vars.outputs.sha_short }}-${{ steps.current-time.outputs.formattedTime }}
-        run: helm template -f values-${{ env.DEPLOY_ENV }}.yaml .
-          --set imageName=${{ steps.build-image.outputs.image }}
-          --set deployEnv=${{ env.DEPLOY_ENV }}
-          > ../../../../../argocd-local/${{ env.SERVICE_NAME }}/${{ env.DEPLOY_ENV }}/app.yaml
-        working-directory: 'self/${{ env.DIRECTORY }}/phr/dna/deploy/helm'
+#       - name: Templating Helm chart
+#         env:
+#           VERSION: ${{ steps.vars.outputs.sha_short }}-${{ steps.current-time.outputs.formattedTime }}
+#         run: helm template -f values-${{ env.DEPLOY_ENV }}.yaml .
+#           --set imageName=${{ steps.build-image.outputs.image }}
+#           --set deployEnv=${{ env.DEPLOY_ENV }}
+#           > ../../../../../argocd-local/${{ env.SERVICE_NAME }}/${{ env.DEPLOY_ENV }}/app.yaml
+#         working-directory: 'self/${{ env.DIRECTORY }}/phr/dna/deploy/helm'
 
-      - name: Push to the argocd-local repository
-        run: |
-          git config --global user.email "iam@github.action"
-          git config --global user.name "GitHubAction"
-          git add .
-          git commit -m "Patch manifests for imageName: ${{ steps.build-image.outputs.image }}"
-          git pull --rebase origin main
-          git push -u origin main
-        working-directory: 'argocd-local'
+#       - name: Push to the argocd-local repository
+#         run: |
+#           git config --global user.email "iam@github.action"
+#           git config --global user.name "GitHubAction"
+#           git add .
+#           git commit -m "Patch manifests for imageName: ${{ steps.build-image.outputs.image }}"
+#           git pull --rebase origin main
+#           git push -u origin main
+#         working-directory: 'argocd-local'
 
