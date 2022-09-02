@@ -24,10 +24,18 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-    - uses: tale/kubectl-action@v1
+    - name: Checkout
+      uses: actions/checkout@v2
+      
+    - name: Install kubectl
+      uses: qgxpagamentos/kubectl-set@v1
       with:
-        base64-kube-config: ${{ secrets.KUBE_CONFIG }}
-    - run: kubectl get pods -n argocd
+        base64-kube-config: ${{ secrets.KUBE_CONFIG_DATA }}
+        kubectl-version: v1.24.5
+
+    - name: Deploy Kubernetes cluster Service/Deployment
+      run: |
+        kubectl version
 #       - name: start minikube
 #         id: minikube
 #         uses: medyagh/setup-minikube@master
