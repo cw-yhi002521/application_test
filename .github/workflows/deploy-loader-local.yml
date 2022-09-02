@@ -69,6 +69,7 @@ jobs:
           ECR_REGISTRY: localhost:5000
           IMAGE_TAG: ${{ env.DEPLOY_ENV }}-${{ steps.vars.outputs.sha_short }}-${{ steps.current-time.outputs.formattedTime }}
         run: |
+          kubectl port-forward --namespace kube-system service/registry 5000:80
           # Build a docker container and push it to ECR
           docker build \
             --build-arg DEPLOY_ENV \
