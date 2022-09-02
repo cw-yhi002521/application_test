@@ -27,13 +27,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
       
-    - name: Install kubectl
-      uses: qgxpagamentos/kubectl-set@v1
-      with:
-        base64-kube-config: ${{ secrets.KUBE_CONFIG_DATA }}
-        kubectl-version: v1.23.3
-
-    - name: Deploy Kubernetes cluster Service/Deployment
+    - uses: actions-hub/kubectl@master
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        
+    - name: Check Command Kubectl
       run: |
         kubectl version
 #       - name: start minikube
