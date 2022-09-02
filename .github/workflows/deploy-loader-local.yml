@@ -24,10 +24,10 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
-        - uses: tale/kubectl-action@v1
-          with:
-            base64-kube-config: ${{ secrets.KUBE_CONFIG }}
-        - run: kubectl get pods
+      - uses: tale/kubectl-action@v1
+        with:
+          base64-kube-config: ${{ secrets.KUBE_CONFIG }}
+      - run: kubectl get pods
 #       - name: start minikube
 #         id: minikube
 #         uses: medyagh/setup-minikube@master
