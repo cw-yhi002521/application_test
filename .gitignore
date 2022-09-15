@@ -4,3 +4,4 @@ include
 bin
 LICENSE.txt
 .idea
+.venv

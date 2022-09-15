@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 """locust-test-module"""
-from locust import TaskSet, task
+from locust import TaskSet, task, LoadTestShape
 from locust_plugins.users import RestUser
 
 
@@ -53,4 +53,4 @@ class MyLocust(RestUser):
     tasks = [MyTaskSet]
     min_wait = 1000
     max_wait = 3000
-    host = "https://boapi.hb.id-im.dev"
+    host = "https://boapi.hb.id-im.dev" 
